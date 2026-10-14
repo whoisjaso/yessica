@@ -15,3 +15,10 @@ export const AGENT_NAME = (process.env.NEXT_PUBLIC_AGENT_NAME || "Yessica Patino
 export function signerFor(dealer: { agentName?: string | null } | null | undefined): string {
   return dealer?.agentName?.trim() || AGENT_NAME;
 }
+
+/**
+ * The dealership the app is set up for, on her list from the first launch:
+ * Triple J Auto Investment LLC, by its P number in TxDMV's list (a public
+ * licence record). NEXT_PUBLIC_HOME_GDN changes it; empty turns it off.
+ */
+export const HOME_GDN = (process.env.NEXT_PUBLIC_HOME_GDN ?? "P171632").trim().toUpperCase();

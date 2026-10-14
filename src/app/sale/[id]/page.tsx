@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useDesk } from "@/components/desk";
 import { Guide, useGuide } from "@/components/guide";
+import { sfx } from "@/lib/sound";
 import { Days, StateWord } from "@/components/bits";
 import { Scanner } from "@/components/scanner";
 import { saveScan, scansFor, type ScanDoc } from "@/lib/scan/store";
@@ -215,6 +216,7 @@ function WebDealerRow({ sale, fields, held }: { sale: TitleSale; fields: Handoff
   async function copy(text: string, mark: string) {
     try {
       await navigator.clipboard.writeText(text);
+      sfx.copy();
       setCopied(mark);
       setTimeout(() => setCopied((c) => (c === mark ? null : c)), 1400);
     } catch {
@@ -455,6 +457,7 @@ function FiledRow({ sale, disabled, guideHere }: { sale: TitleSale; disabled: bo
           e.preventDefault();
           if (disabled || !num.trim()) return;
           mark(sale.id, "filed");
+          sfx.success();
           await saveSale({ ...sale, filedNumber: num.trim(), filedAt: new Date().toISOString(), filedBy: me });
         }}
       >
@@ -468,7 +471,7 @@ function FiledRow({ sale, disabled, guideHere }: { sale: TitleSale; disabled: bo
           data-testid="receipt"
           data-guide="receipt"
         />
-        <button className="primary" disabled={disabled || !num.trim()} data-testid="file-it" data-guide="file-it">
+        <button className="primary" disabled={disabled || !num.trim()} data-testid="file-it" data-guide="file-it" data-sfx="own">
           {t("fileIt")}
         </button>
       </form>

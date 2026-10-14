@@ -27,7 +27,11 @@ export function DealerSearch({ onPick, autoFocus, guided }: { onPick: (dealer: D
     const sorted = [...dealers].sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt));
     const f = fold(q);
     if (!f) return sorted;
-    return sorted.filter((d) => fold(`${d.name} ${d.dba} ${d.gdn} ${d.city}`).includes(f));
+    const words = f.split(" ");
+    return sorted.filter((d) => {
+      const hay = ` ${fold(`${d.name} ${d.dba} ${d.gdn} ${d.city}`)}`;
+      return words.every((w) => hay.includes(w));
+    });
   }, [dealers, q]);
 
   useEffect(() => {
@@ -52,6 +56,9 @@ export function DealerSearch({ onPick, autoFocus, guided }: { onPick: (dealer: D
     return () => clearTimeout(timer);
   }, [q]);
 
+  // Always start by searching, even for a dealer already saved: typing its
+  // name is how she finds it, saved or not.
+  const typed = q.trim().length >= 2;
   const mineGdns = new Set(dealers.map((d) => d.gdn.toUpperCase()));
   const fresh = found.filter((d) => !mineGdns.has(d.gdn.toUpperCase()));
   const openCount = (id: string) => sales.filter((s) => s.dealerId === id && !s.filedNumber).length;
@@ -109,7 +116,7 @@ export function DealerSearch({ onPick, autoFocus, guided }: { onPick: (dealer: D
                 <button type="button" onClick={() => onPick(d)} className="tile flex w-full items-center justify-between gap-3 px-5 py-4 text-left" data-guide={d === mine[0] ? "dealer-mine-0" : undefined}>
                   <span className="min-w-0">
                     <span className="block truncate text-[16px] font-medium" data-own-content>
-                      {d.dba || d.name}
+                      {titleCase((d.dba || d.name).split(",")[0])}
                     </span>
                     <span className="figure mt-0.5 block text-[13px] text-faint" data-own-content>
                       {d.gdn} · {d.city}
@@ -167,8 +174,8 @@ export function DealerSearch({ onPick, autoFocus, guided }: { onPick: (dealer: D
 
       {guided && (
         <Guide
-          target={mine.length ? "dealer-mine-0" : fresh.length ? "dealer-hit-0" : "dealer-input"}
-          say={mine.length || fresh.length ? t("gDealerPick") : t("gDealerType")}
+          target={!typed ? "dealer-input" : mine.length ? "dealer-mine-0" : fresh.length ? "dealer-hit-0" : "dealer-input"}
+          say={typed && (mine.length || fresh.length) ? t("gDealerPick") : t("gDealerType")}
         />
       )}
 

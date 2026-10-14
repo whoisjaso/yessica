@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDesk } from "@/components/desk";
+import { sfx } from "@/lib/sound";
 import { enhance, findPage, insetQuad, outputSize, scaleQuad, shrinkQuad, warp, type Look, type Point, type Quad, type Rgba } from "@/lib/scan/geometry";
 
 /**
@@ -106,6 +107,7 @@ export function Scanner({ title, onDone, onCancel }: { title: string; onDone: (p
   function shutter() {
     const v = video.current;
     if (!v || !v.videoWidth) return;
+    sfx.shutter();
     take(v, v.videoWidth, v.videoHeight);
   }
 
@@ -209,7 +211,7 @@ export function Scanner({ title, onDone, onCancel }: { title: string; onDone: (p
             )}
           </div>
           {camera === "on" ? (
-            <button type="button" onClick={shutter} aria-label={t("scan")} className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-[3px] border-[#f7f3ec]" data-testid="shutter">
+            <button type="button" onClick={shutter} aria-label={t("scan")} className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-[3px] border-[#f7f3ec]" data-testid="shutter" data-sfx="own">
               <span className="block h-[60px] w-[60px] rounded-full bg-[#f7f3ec] transition-transform active:scale-90" />
             </button>
           ) : (

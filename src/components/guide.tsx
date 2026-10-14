@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { sfx } from "@/lib/sound";
 
 /**
  * The walking tutorial.
@@ -97,6 +98,15 @@ export function Guide({ target, say, step }: { target: string | null; say: strin
     const t = setTimeout(() => setGliding(false), 420);
     return () => clearTimeout(t);
   }, [target]);
+
+  // A soft chime each time the ring moves on to the next thing.
+  const chimedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!on || !target || !rect || chimedFor.current === target) return;
+    const first = chimedFor.current === null;
+    chimedFor.current = target;
+    if (!first) sfx.step();
+  }, [on, target, rect]);
 
   useEffect(() => {
     if (!on || !target) {

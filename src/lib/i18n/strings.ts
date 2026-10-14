@@ -187,6 +187,9 @@ export const STRINGS = {
   otherLender: { en: "Someone else", es: "Otro" },
   lenderName: { en: "Bank or lender name", es: "Nombre del banco o prestamista" },
 
+  soundOn: { en: "Sound on", es: "Sonido activo" },
+  soundOff: { en: "Sound off", es: "Sonido apagado" },
+
   howTitle: { en: "How To File", es: "Cómo Registrar" },
   howLead: { en: "One sale, start to finish.", es: "Una venta, de principio a fin." },
 

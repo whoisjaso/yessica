@@ -5,7 +5,9 @@ import { cloudStore, deviceStore, supabase, type Store } from "@/lib/store/store
 import { say, type Lang, type StringKey } from "@/lib/i18n/strings";
 import type { Dealer, TitleSale } from "@/lib/title/types";
 import { SignIn } from "@/components/sign-in";
-import { AGENT_NAME } from "@/lib/title/agent";
+import { AGENT_NAME, HOME_GDN } from "@/lib/title/agent";
+import { newId } from "@/lib/store/store";
+import type { DirectoryDealer } from "@/lib/dealers/search";
 
 type Desk = {
   lang: Lang;
@@ -27,6 +29,21 @@ const DeskContext = createContext<Desk | null>(null);
 
 const LANG_KEY = "titledesk.lang";
 const ME_KEY = "titledesk.me";
+const HOME_KEY = "titledesk.home";
+
+async function homeDealer(): Promise<Dealer | null> {
+  try {
+    const res = await fetch(`/api/dealers?q=${encodeURIComponent(HOME_GDN)}`);
+    const hit = ((await res.json()) as { dealers: DirectoryDealer[] }).dealers?.find((x) => x.gdn.toUpperCase() === HOME_GDN);
+    if (!hit) return null;
+    // Older than any dealer she adds, so the ones she uses float above it.
+    const at = "2026-01-01T00:00:00.000Z";
+    const city = hit.city === hit.city.toUpperCase() ? hit.city.toLowerCase().replace(/\b[a-z]/g, (m) => m.toUpperCase()) : hit.city;
+    return { id: newId(), gdn: hit.gdn, name: hit.name, dba: hit.dba, street: hit.street, city, state: "TX", zip: hit.zip, county: hit.county, agentName: "", createdAt: at, lastUsedAt: at };
+  } catch {
+    return null;
+  }
+}
 
 function readPref(key: string): string | null {
   try {
@@ -88,10 +105,19 @@ export function DeskProvider({ children }: { children: ReactNode }) {
     if (!store) return;
     let live = true;
     Promise.all([store.listDealers(), store.listSales()])
-      .then(([d, s]) => {
+      .then(async ([d, s]) => {
         if (!live) return;
         setDealers(d);
         setSales(s);
+        // Her home dealership is on the list from day one, looked up once.
+        if (HOME_GDN && !d.some((x) => x.gdn.toUpperCase() === HOME_GDN) && readPref(HOME_KEY) !== HOME_GDN) {
+          const home = await homeDealer();
+          if (home && live) {
+            await store.saveDealer(home);
+            writePref(HOME_KEY, HOME_GDN);
+            setDealers((all) => (all.some((x) => x.gdn === home.gdn) ? all : [...all, home]));
+          }
+        }
       })
       .finally(() => live && setReady(true));
     return () => {
