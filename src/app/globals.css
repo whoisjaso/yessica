@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/*
+  Paper, ink, one copper accent. Quiet luxury: generous space, hairline
+  rules, a serif only for display, figures in mono so columns line up.
+  Copper marks the one live thing on a screen and nothing else.
+*/
+:root {
+  --paper: #f7f3ec;
+  --raised: #fffdf9;
+  --well: #efe9df;
+  --line: #ddd5c8;
+  --line-strong: #c9bfaf;
+  --ink: #15130f;
+  --muted: #5a554c;
+  --faint: #7a7468;
+  --copper: #8a4f2b;
+  --copper-deep: #6f3d1f;
+  --copper-wash: #f3e7dc;
+  --ready: #1f5a3d;
+  --ready-wash: #e4efe7;
+  --wait: #7a4f0e;
+  --wait-wash: #f6ecd8;
+  --late: #8b271b;
+  --late-wash: #f6e3df;
+  --shadow: 0 1px 0 rgba(21, 19, 15, 0.04), 0 8px 24px -12px rgba(21, 19, 15, 0.18);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-raised: var(--raised);
+  --color-well: var(--well);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-copper: var(--copper);
+  --color-copper-deep: var(--copper-deep);
+  --color-copper-wash: var(--copper-wash);
+  --color-ready: var(--ready);
+  --color-ready-wash: var(--ready-wash);
+  --color-wait: var(--wait);
+  --color-wait-wash: var(--wait-wash);
+  --color-late: var(--late);
+  --color-late-wash: var(--late-wash);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+}
+
+@layer components {
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
+.figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 500;
+}
+
+.tile {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.tile:hover {
+  border-color: var(--line-strong);
+}
+.tile:active {
+  transform: scale(0.99);
+}
+.tile[aria-pressed="true"] {
+  border-color: var(--copper);
+  box-shadow: 0 0 0 1px var(--copper), var(--shadow);
+}
+
+.field {
+  width: 100%;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 17px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.field::placeholder {
+  color: var(--faint);
+}
+.field:focus {
+  border-color: var(--copper);
+  box-shadow: 0 0 0 3px rgba(138, 79, 43, 0.14);
+}
+
+.primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 14px 26px;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.primary:hover {
+  background: #2a2620;
+}
+.primary:active {
+  transform: scale(0.98);
+}
+.primary:disabled {
+  opacity: 0.35;
+}
+
+.ghost {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  transition: background 140ms ease;
+}
+.ghost:hover {
+  background: var(--well);
+}
+
+.rule {
+  height: 1px;
+  background: var(--line);
+}
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .tile {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}
