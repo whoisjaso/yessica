@@ -137,6 +137,22 @@ export const STRINGS = {
   plate: { en: "Plate from ePLATE", es: "Placa de ePLATE" },
   fixFirst: { en: "Fill these first", es: "Llene esto primero" },
 
+  scan: { en: "Scan", es: "Escanear" },
+  rescan: { en: "Scan again", es: "Escanear otra vez" },
+  pagesN: { en: "{n} pages", es: "{n} páginas" },
+  onePage: { en: "1 page", es: "1 página" },
+  share: { en: "Share", es: "Compartir" },
+  shareAll: { en: "Share all", es: "Compartir todo" },
+  cancel: { en: "Cancel", es: "Cancelar" },
+  cameraOff: { en: "Camera is off. Take a photo instead.", es: "La cámara está apagada. Tome una foto." },
+  takePhoto: { en: "Take Photo", es: "Tomar Foto" },
+  photos: { en: "Photos", es: "Fotos" },
+  retake: { en: "Retake", es: "Repetir" },
+  keepScan: { en: "Keep Scan", es: "Guardar" },
+  lookDocument: { en: "Document", es: "Documento" },
+  lookGray: { en: "Gray", es: "Gris" },
+  lookColor: { en: "Color", es: "Color" },
+
   howTitle: { en: "How To File", es: "Cómo Registrar" },
   howLead: { en: "One sale, start to finish.", es: "Una venta, de principio a fin." },
 

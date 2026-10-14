@@ -19,6 +19,12 @@ of data, not a code change.
   **webDEALER** copy list in webDEALER's own page order (tap a box to copy),
   what to **Bring** in upload order, and **Filed** (the webDEALER receipt
   number stops the clock).
+- **Scan.** Every paper on a sale's Bring list has a Scan button. The phone
+  camera outlines the page live (like the Notes app), she taps the shutter,
+  drags a corner if needed, and the page comes out flat and clean (Document,
+  Gray or Color). Several pages make one PDF, named in upload order
+  ("02 Title - Buyer.pdf"), ready to Share to Files or upload to webDEALER.
+  Scans stay on her phone.
 - **Title Work.** Tiles sorted by days left on the 30-day clock (45 when the
   dealer carries the note), each with one word: Ready, Waiting (and why), Filed.
 - **How To File.** Her SOP, generated from the webDEALER page order. Printable.

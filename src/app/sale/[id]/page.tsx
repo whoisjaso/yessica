@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useDesk } from "@/components/desk";
 import { Days, StateWord } from "@/components/bits";
+import { Scanner } from "@/components/scanner";
+import { saveScan, scansFor, type ScanDoc } from "@/lib/scan/store";
+import { pagesToPdf, scanFileName, shareFiles } from "@/lib/scan/pdf";
 import { titleCase } from "@/components/dealer-search";
 import { titleClock, texasToday, usDate } from "@/lib/title/clock";
 import { bringList, saleState } from "@/lib/title/facts";
@@ -269,17 +272,112 @@ function WebDealerRow({ sale, fields, held }: { sale: TitleSale; fields: Handoff
 
 function BringRow({ sale }: { sale: TitleSale }) {
   const { t, lang } = useDesk();
+  const items = bringList(sale);
+  const [scans, setScans] = useState<ScanDoc[]>([]);
+  const [scanning, setScanning] = useState<{ key: string; label: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    scansFor(sale.id).then((docs) => live && setScans(docs));
+    return () => {
+      live = false;
+    };
+  }, [sale.id]);
+
+  const scanOf = (key: string) => scans.find((d) => d.docKey === key && d.pages.length > 0);
+  const label = (i: number) => (lang === "es" ? items[i].es : items[i].en);
+
+  async function fileFor(i: number): Promise<File | null> {
+    const doc = scanOf(items[i].key);
+    if (!doc) return null;
+    const name = scanFileName(i + 1, items[i].en.split(",")[0], buyerName(sale.buyer));
+    const bytes = await pagesToPdf(doc.pages, name.replace(/\.pdf$/, ""));
+    return new File([bytes as BlobPart], name, { type: "application/pdf" });
+  }
+
+  async function share(indexes: number[], mark: string) {
+    setBusy(mark);
+    try {
+      const files = (await Promise.all(indexes.map(fileFor))).filter((f): f is File => !!f);
+      if (files.length) await shareFiles(files);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const scannedIdx = items.map((_, i) => i).filter((i) => scanOf(items[i].key));
+
   return (
-    <Row title={t("rowBring")} testId="row-bring">
-      <ol className="flex flex-col gap-2">
-        {bringList(sale).map((item, i) => (
-          <li key={item.key} className="flex gap-3 text-[15px]">
-            <span className="figure w-5 shrink-0 text-faint">{i + 1}</span>
-            <span>{lang === "es" ? item.es : item.en}</span>
-          </li>
-        ))}
+    <Row
+      title={t("rowBring")}
+      testId="row-bring"
+      aside={
+        scannedIdx.length > 1 ? (
+          <button type="button" className="text-[13px] font-medium text-copper" onClick={() => share(scannedIdx, "all")}>
+            {busy === "all" ? t("making") : t("shareAll")}
+          </button>
+        ) : null
+      }
+    >
+      <ol className="flex flex-col">
+        {items.map((item, i) => {
+          const doc = scanOf(item.key);
+          return (
+            <li key={item.key} className={`flex items-center gap-3 py-3 ${i ? "border-t border-line" : ""}`}>
+              <span className="figure w-5 shrink-0 self-start pt-0.5 text-faint">{i + 1}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px]">{label(i)}</span>
+                {doc && (
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-ready">
+                    <span aria-hidden>✓</span>
+                    {doc.pages.length === 1 ? t("onePage") : t("pagesN", { n: doc.pages.length })}
+                    <button type="button" className="ml-2 font-normal text-faint underline underline-offset-2" onClick={() => setScanning({ key: item.key, label: label(i) })}>
+                      {t("rescan")}
+                    </button>
+                  </span>
+                )}
+              </span>
+              {doc ? (
+                <button type="button" className="ghost no-print shrink-0" onClick={() => share([i], item.key)}>
+                  {busy === item.key ? t("making") : t("share")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="no-print inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[14px] font-medium text-paper"
+                  onClick={() => setScanning({ key: item.key, label: label(i) })}
+                  data-testid={`scan-${item.key}`}
+                >
+                  <ScanGlyph />
+                  {t("scan")}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ol>
+      {scanning && (
+        <Scanner
+          title={scanning.label}
+          onCancel={() => setScanning(null)}
+          onDone={async (pages) => {
+            const doc: ScanDoc = { id: `${sale.id}:${scanning.key}`, saleId: sale.id, docKey: scanning.key, pages, updatedAt: new Date().toISOString() };
+            await saveScan(doc);
+            setScans((all) => [...all.filter((d) => d.id !== doc.id), doc]);
+            setScanning(null);
+          }}
+        />
+      )}
     </Row>
+  );
+}
+
+function ScanGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <path d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7M13 3h2.5A1.5 1.5 0 0 1 17 4.5V7M17 13v2.5a1.5 1.5 0 0 1-1.5 1.5H13M7 17H4.5A1.5 1.5 0 0 1 3 15.5V13M3 10h14" strokeLinecap="round" />
+    </svg>
   );
 }
 
