@@ -6,6 +6,7 @@
 import type { AgreementData } from "@/lib/form130u/field-mapping";
 import { saleWeights } from "@/lib/title/facts";
 import type { Dealer, TitleSale } from "@/lib/title/types";
+import { signerFor } from "@/lib/title/agent";
 
 const BRAND: Record<TitleSale["odometerBrand"], AgreementData["odometer_brand"]> = {
   actual: "A",
@@ -25,7 +26,7 @@ export function agreementFromSale(sale: TitleSale, dealer: Dealer): AgreementDat
       state: dealer.state || "TX",
       zip: dealer.zip,
       gdn: dealer.gdn,
-      agentName: dealer.agentName,
+      agentName: signerFor(dealer),
     },
     vin: sale.vin.trim().toUpperCase(),
     year: sale.year,

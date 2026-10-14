@@ -5,6 +5,8 @@ import { use, useEffect, useState } from "react";
 import { useDesk } from "@/components/desk";
 import { SaleTile } from "@/components/bits";
 import { titleCase } from "@/components/dealer-search";
+import { AGENT_NAME } from "@/lib/title/agent";
+import { Guide } from "@/components/guide";
 
 export default function DealerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -12,6 +14,7 @@ export default function DealerPage({ params }: { params: Promise<{ id: string }>
   const dealer = dealers.find((d) => d.id === id);
   const [agent, setAgent] = useState("");
   const [saved, setSaved] = useState(false);
+  const [other, setOther] = useState(false);
 
   useEffect(() => {
     if (dealer) setAgent(dealer.agentName);
@@ -48,27 +51,59 @@ export default function DealerPage({ params }: { params: Promise<{ id: string }>
       </p>
 
       <div className="mt-8">
-        <label className="block text-[15px] font-medium" htmlFor="agent">
-          {t("whoSigns")}
-        </label>
-        <p className="mt-1 text-[13px] text-faint">{t("whoSignsHint")}</p>
-        <div className="mt-3 flex items-center gap-3">
-          <input
-            id="agent"
-            className="field"
-            value={agent}
-            onChange={(e) => setAgent(e.target.value)}
-            onBlur={saveAgent}
-            onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-            autoComplete="off"
-          />
-          {saved && <span className="text-[13px] text-ready">{t("saved")}</span>}
+        <p className="text-[15px] font-medium">{t("whoSigns")}</p>
+        <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+          <button
+            type="button"
+            aria-pressed={!dealer.agentName}
+            onClick={() => {
+              setOther(false);
+              setAgent("");
+              if (dealer.agentName) void saveDealer({ ...dealer, agentName: "" });
+            }}
+            className="tile flex items-center justify-between px-5 py-4 text-left"
+            data-guide="signer-me"
+          >
+            <span className="text-[17px] font-medium" data-own-content>
+              {AGENT_NAME}
+            </span>
+            {!dealer.agentName && !other && <span className="text-[13px] font-semibold text-copper">✓</span>}
+          </button>
+          <button
+            type="button"
+            aria-pressed={!!dealer.agentName || other}
+            onClick={() => setOther(true)}
+            className="tile flex items-center justify-between px-5 py-4 text-left"
+          >
+            <span className="text-[17px] font-medium" data-own-content>
+              {dealer.agentName || t("someoneElse")}
+            </span>
+            {!!dealer.agentName && <span className="text-[13px] font-semibold text-copper">✓</span>}
+          </button>
         </div>
+        {other && (
+          <form
+            className="mt-3 flex gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await saveAgent();
+              setOther(false);
+            }}
+          >
+            <input className="field" value={agent} onChange={(e) => setAgent(e.target.value)} placeholder={t("fullName")} autoFocus autoComplete="off" />
+            <button className="primary shrink-0" disabled={agent.trim().split(/\s+/).length < 2}>
+              {t("done")}
+            </button>
+          </form>
+        )}
+        {saved && <p className="mt-2 text-[13px] text-ready">{t("saved")}</p>}
       </div>
 
-      <Link href={`/new?dealer=${dealer.id}`} className="primary mt-8 inline-block">
+      <Link href={`/new?dealer=${dealer.id}`} className="primary mt-8 inline-block" data-guide="sale-here">
         {t("saleForDealer")}
       </Link>
+
+      {!other && <Guide target="sale-here" say={t("gSaleHere")} />}
 
       {open.length > 0 && (
         <section className="mt-10">

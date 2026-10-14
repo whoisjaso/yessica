@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useDesk } from "@/components/desk";
+import { useGuide } from "@/components/guide";
 
 const NAV = [
   { href: "/", key: "navWork" },
@@ -13,6 +14,7 @@ const NAV = [
 
 export function Shell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useDesk();
+  const guide = useGuide();
   const path = usePathname();
   const flow = path.startsWith("/new");
   const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/sale") : path.startsWith(href));
@@ -24,13 +26,27 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="display text-[26px] text-ink">Title Desk</span>
           <span className="h-1.5 w-1.5 translate-y-[-3px] rounded-full bg-copper" aria-hidden />
         </Link>
-        <button
-          type="button"
-          onClick={() => setLang(lang === "en" ? "es" : "en")}
-          className="text-[13px] font-medium text-muted underline-offset-4 hover:underline"
-        >
-          {t("langSwitch")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => guide.setOn(!guide.on)}
+            aria-pressed={guide.on}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              guide.on ? "border-copper/40 bg-copper-wash text-copper" : "border-line text-muted"
+            }`}
+            data-testid="guide-toggle"
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${guide.on ? "bg-copper" : "bg-faint"}`} aria-hidden />
+            {t(guide.on ? "guideOn" : "guideOff")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang(lang === "en" ? "es" : "en")}
+            className="rounded-full border border-line px-3 py-1.5 text-[12px] font-medium text-muted"
+          >
+            {t("langSwitch")}
+          </button>
+        </div>
       </header>
 
       {!flow && (
@@ -41,6 +57,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <Link
                   href={item.href}
                   aria-current={active(item.href) ? "page" : undefined}
+                  data-guide={item.href === "/" ? "nav-work" : undefined}
                   className={`block rounded-full px-2 py-2.5 text-center text-[14px] font-medium transition-colors ${
                     active(item.href) ? "bg-ink text-paper" : "text-muted hover:text-ink"
                   }`}

@@ -5,6 +5,7 @@ import "@fontsource-variable/cormorant-garamond";
 import "./globals.css";
 import { DeskProvider } from "@/components/desk";
 import { Shell } from "@/components/shell";
+import { GuideProvider } from "@/components/guide";
 
 export const metadata: Metadata = {
   title: "Title Desk",
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body>
         <DeskProvider>
-          <Shell>{children}</Shell>
+          <GuideProvider>
+            <Shell>{children}</Shell>
+          </GuideProvider>
         </DeskProvider>
       </body>
     </html>

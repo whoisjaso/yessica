@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useDesk } from "@/components/desk";
+import { Guide, useGuide } from "@/components/guide";
 import { Days, StateWord } from "@/components/bits";
 import { Scanner } from "@/components/scanner";
 import { saveScan, scansFor, type ScanDoc } from "@/lib/scan/store";
@@ -14,6 +15,9 @@ import { HANDOFF_PAGES, allText, buildHandoff, missingFields, pageText, type Han
 import { buyerName, carName, type Dealer, type TitleSale } from "@/lib/title/types";
 import type { StepId } from "@/lib/title/intake";
 import type { StringKey } from "@/lib/i18n/strings";
+
+/** TxDMV's own webDEALER login, as linked from txdmv.gov/dealers/webdealer. */
+const WEBDEALER_LOGIN = "https://webdealer.txdmv.gov/title/login.do";
 
 function heldReason(sale: TitleSale): StringKey {
   const state = saleState(sale);
@@ -44,8 +48,17 @@ const FIX_STEP: Record<string, StepId> = {
 
 export default function SalePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { t, sales, dealers, ready } = useDesk();
+  const { t, lang, sales, dealers, ready } = useDesk();
+  const { marks } = useGuide();
   const sale = sales.find((s) => s.id === id);
+  const [scans, setScans] = useState<ScanDoc[]>([]);
+  useEffect(() => {
+    let live = true;
+    scansFor(id).then((docs) => live && setScans(docs));
+    return () => {
+      live = false;
+    };
+  }, [id]);
   if (!sale) return ready ? <p className="text-muted">—</p> : null;
   const dealer = dealers.find((d) => d.id === sale.dealerId) ?? null;
   const clock = titleClock(sale, texasToday());
@@ -53,6 +66,26 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
   const missing = missingFields(fields).filter((f, i, all) => all.findIndex((g) => g.key === f.key) === i);
   const state = saleState(sale);
   const canFile = state.word === "ready" || state.word === "filed";
+  const done = marks(sale.id);
+  const scanned = (key: string) => scans.some((d) => d.docKey === key && d.pages.length > 0);
+  const nextPage = HANDOFF_PAGES.find((p) => fields.some((f) => f.page === p.page) && !done[`wd:${p.page}`]);
+
+  // The one next thing, in the order the work is done.
+  const step: { target: string; say: StringKey; vars?: Record<string, string> } = sale.filedNumber
+    ? { target: "nav-work", say: "gFiled" }
+    : missing.length > 0
+      ? { target: "fix-0", say: "gFix" }
+      : !done.printed
+        ? { target: "print-130u", say: "gPrint" }
+        : !scanned("form130u")
+          ? { target: "scan-form130u", say: "gScan130u" }
+          : !scanned("title")
+            ? { target: "scan-title", say: "gScanTitle" }
+            : !done.webdealer
+              ? { target: "open-webdealer", say: "gOpenWeb" }
+              : nextPage
+                ? { target: `wd-${nextPage.page}`, say: "gPage", vars: { page: lang === "es" ? nextPage.es : nextPage.title } }
+                : { target: "receipt", say: "gReceipt" };
 
   return (
     <div>
@@ -83,9 +116,10 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
         <div className="mt-8 rounded-[18px] border border-wait/30 bg-wait-wash px-5 py-4">
           <p className="text-[14px] font-medium text-wait">{t("fixFirst")}</p>
           <ul className="mt-2 flex flex-wrap gap-2">
-            {missing.map((f) => (
+            {missing.map((f, i) => (
               <li key={f.key}>
                 <Link
+                  data-guide={`fix-${i}`}
                   href={`/new?sale=${sale.id}&step=${FIX_STEP[f.key] ?? "vin"}`}
                   className="inline-block rounded-full border border-wait/40 bg-raised px-3 py-1.5 text-[13px] font-medium text-ink"
                 >
@@ -100,9 +134,11 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
       <div className="mt-8 flex flex-col gap-4">
         <FormRow sale={sale} dealer={dealer} disabled={!canFile} />
         <WebDealerRow sale={sale} fields={fields} held={!canFile} />
-        <BringRow sale={sale} />
-        <FiledRow sale={sale} disabled={!canFile} />
+        <BringRow sale={sale} scans={scans} setScans={setScans} />
+        <FiledRow sale={sale} disabled={!canFile} guideHere={step.target === "receipt"} />
       </div>
+
+      {step.target !== "receipt" && <Guide target={step.target} say={t(step.say, step.vars)} />}
 
       <p className="no-print mt-10 text-center">
         <Link href={`/new?sale=${sale.id}&step=vin`} className="text-[14px] text-muted underline underline-offset-4 hover:text-ink">
@@ -127,10 +163,12 @@ function Row({ title, aside, children, testId }: { title: string; aside?: React.
 
 function FormRow({ sale, dealer, disabled }: { sale: TitleSale; dealer: Dealer | null; disabled: boolean }) {
   const { t } = useDesk();
+  const { mark } = useGuide();
   const [busy, setBusy] = useState(false);
 
   async function make(print: boolean) {
     if (!dealer) return;
+    mark(sale.id, "printed");
     setBusy(true);
     // Opened before the await, so the browser counts it as her tap.
     const tab = window.open("", "_blank");
@@ -158,7 +196,7 @@ function FormRow({ sale, dealer, disabled }: { sale: TitleSale; dealer: Dealer |
           <button type="button" className="ghost" disabled={disabled || busy} onClick={() => make(false)} data-testid="open-130u">
             {busy ? t("making") : t("open")}
           </button>
-          <button type="button" className="ghost" disabled={disabled || busy} onClick={() => make(true)}>
+          <button type="button" className="ghost" disabled={disabled || busy} onClick={() => make(true)} data-guide="print-130u">
             {t("print")}
           </button>
         </div>
@@ -169,6 +207,7 @@ function FormRow({ sale, dealer, disabled }: { sale: TitleSale; dealer: Dealer |
 
 function WebDealerRow({ sale, fields, held }: { sale: TitleSale; fields: HandoffField[]; held: boolean }) {
   const { t, lang, saveSale } = useDesk();
+  const { mark } = useGuide();
   const [openPage, setOpenPage] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [plate, setPlate] = useState(sale.plate);
@@ -199,6 +238,19 @@ function WebDealerRow({ sale, fields, held }: { sale: TitleSale; fields: Handoff
         )
       }
     >
+      {!held && (
+        <a
+          href={WEBDEALER_LOGIN}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => mark(sale.id, "webdealer")}
+          className="mb-3 flex items-center justify-between rounded-2xl bg-ink px-5 py-3.5 text-[15px] font-medium text-paper"
+          data-guide="open-webdealer"
+        >
+          {t("openWebdealer")}
+          <span aria-hidden>↗</span>
+        </a>
+      )}
       <ol className="-mx-1">
         {pages.map((p, n) => {
           const rows = fields.filter((f) => f.page === p.page);
@@ -207,7 +259,11 @@ function WebDealerRow({ sale, fields, held }: { sale: TitleSale; fields: Handoff
             <li key={p.page} className={n ? "border-t border-line" : ""}>
               <button
                 type="button"
-                onClick={() => setOpenPage(isOpen ? null : p.page)}
+                onClick={() => {
+                  setOpenPage(isOpen ? null : p.page);
+                  if (!isOpen) mark(sale.id, `wd:${p.page}`);
+                }}
+                data-guide={`wd-${p.page}`}
                 className="flex w-full items-center justify-between gap-3 px-1 py-3 text-left"
                 aria-expanded={isOpen}
               >
@@ -270,20 +326,11 @@ function WebDealerRow({ sale, fields, held }: { sale: TitleSale; fields: Handoff
   );
 }
 
-function BringRow({ sale }: { sale: TitleSale }) {
+function BringRow({ sale, scans, setScans }: { sale: TitleSale; scans: ScanDoc[]; setScans: React.Dispatch<React.SetStateAction<ScanDoc[]>> }) {
   const { t, lang } = useDesk();
   const items = bringList(sale);
-  const [scans, setScans] = useState<ScanDoc[]>([]);
   const [scanning, setScanning] = useState<{ key: string; label: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    scansFor(sale.id).then((docs) => live && setScans(docs));
-    return () => {
-      live = false;
-    };
-  }, [sale.id]);
 
   const scanOf = (key: string) => scans.find((d) => d.docKey === key && d.pages.length > 0);
   const label = (i: number) => (lang === "es" ? items[i].es : items[i].en);
@@ -348,6 +395,7 @@ function BringRow({ sale }: { sale: TitleSale }) {
                   className="no-print inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[14px] font-medium text-paper"
                   onClick={() => setScanning({ key: item.key, label: label(i) })}
                   data-testid={`scan-${item.key}`}
+                  data-guide={`scan-${item.key}`}
                 >
                   <ScanGlyph />
                   {t("scan")}
@@ -381,10 +429,10 @@ function ScanGlyph() {
   );
 }
 
-function FiledRow({ sale, disabled }: { sale: TitleSale; disabled: boolean }) {
-  const { t, saveSale, me, setMe } = useDesk();
+function FiledRow({ sale, disabled, guideHere }: { sale: TitleSale; disabled: boolean; guideHere: boolean }) {
+  const { t, saveSale, me } = useDesk();
+  const { mark } = useGuide();
   const [num, setNum] = useState(sale.filedNumber);
-  const [who, setWho] = useState(me);
 
   if (sale.filedNumber) {
     return (
@@ -399,21 +447,15 @@ function FiledRow({ sale, disabled }: { sale: TitleSale; disabled: boolean }) {
     );
   }
 
-  const needName = !me;
   return (
     <Row title={t("rowFiled")} testId="row-filed">
       <form
         className="flex flex-col gap-3"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (disabled || !num.trim() || (needName && !who.trim())) return;
-          if (needName) setMe(who.trim());
-          await saveSale({
-            ...sale,
-            filedNumber: num.trim(),
-            filedAt: new Date().toISOString(),
-            filedBy: (me || who).trim(),
-          });
+          if (disabled || !num.trim()) return;
+          mark(sale.id, "filed");
+          await saveSale({ ...sale, filedNumber: num.trim(), filedAt: new Date().toISOString(), filedBy: me });
         }}
       >
         <input
@@ -422,15 +464,15 @@ function FiledRow({ sale, disabled }: { sale: TitleSale; disabled: boolean }) {
           value={num}
           onChange={(e) => setNum(e.target.value)}
           disabled={disabled}
+          inputMode="text"
           data-testid="receipt"
+          data-guide="receipt"
         />
-        {needName && (
-          <input className="field text-[16px]" placeholder={t("yourName")} value={who} onChange={(e) => setWho(e.target.value)} disabled={disabled} />
-        )}
-        <button className="primary" disabled={disabled || !num.trim() || (needName && !who.trim())} data-testid="file-it">
+        <button className="primary" disabled={disabled || !num.trim()} data-testid="file-it" data-guide="file-it">
           {t("fileIt")}
         </button>
       </form>
+      {guideHere && <Guide target={num.trim() ? "file-it" : "receipt"} say={t(num.trim() ? "gFileIt" : "gReceipt")} />}
     </Row>
   );
 }

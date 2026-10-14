@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesk } from "@/components/desk";
+import { Guide } from "@/components/guide";
 import { fold, type DirectoryDealer } from "@/lib/dealers/search";
 import { newId } from "@/lib/store/store";
 import type { Dealer } from "@/lib/title/types";
@@ -15,7 +16,7 @@ import type { Dealer } from "@/lib/title/types";
  * every GDN in the state, so the name, P number and address arrive
  * together and nothing is typed twice.
  */
-export function DealerSearch({ onPick, autoFocus }: { onPick: (dealer: Dealer) => void; autoFocus?: boolean }) {
+export function DealerSearch({ onPick, autoFocus, guided }: { onPick: (dealer: Dealer) => void; autoFocus?: boolean; guided?: boolean }) {
   const { t, dealers, sales, saveDealer } = useDesk();
   const [q, setQ] = useState("");
   const [found, setFound] = useState<DirectoryDealer[]>([]);
@@ -89,6 +90,7 @@ export function DealerSearch({ onPick, autoFocus }: { onPick: (dealer: Dealer) =
           spellCheck={false}
           enterKeyHint="search"
           data-testid="dealer-search"
+          data-guide="dealer-input"
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
@@ -104,7 +106,7 @@ export function DealerSearch({ onPick, autoFocus }: { onPick: (dealer: Dealer) =
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">
             {mine.slice(0, q ? 4 : 12).map((d) => (
               <li key={d.id}>
-                <button type="button" onClick={() => onPick(d)} className="tile flex w-full items-center justify-between gap-3 px-5 py-4 text-left">
+                <button type="button" onClick={() => onPick(d)} className="tile flex w-full items-center justify-between gap-3 px-5 py-4 text-left" data-guide={d === mine[0] ? "dealer-mine-0" : undefined}>
                   <span className="min-w-0">
                     <span className="block truncate text-[16px] font-medium" data-own-content>
                       {d.dba || d.name}
@@ -136,6 +138,7 @@ export function DealerSearch({ onPick, autoFocus }: { onPick: (dealer: Dealer) =
                   onClick={() => void adopt(d)}
                   className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-well"
                   data-testid="directory-hit"
+                  data-guide={i === 0 ? "dealer-hit-0" : undefined}
                 >
                   <span className="min-w-0">
                     <span className="block text-[16px] font-medium leading-snug" data-own-content>
@@ -160,6 +163,13 @@ export function DealerSearch({ onPick, autoFocus }: { onPick: (dealer: Dealer) =
             {!searching && fresh.length === 0 && <li className="px-5 py-4 text-[15px] text-muted">{t("noMatch")}</li>}
           </ul>
         </section>
+      )}
+
+      {guided && (
+        <Guide
+          target={mine.length ? "dealer-mine-0" : fresh.length ? "dealer-hit-0" : "dealer-input"}
+          say={mine.length || fresh.length ? t("gDealerPick") : t("gDealerType")}
+        />
       )}
 
       <p className="mt-6 text-center">

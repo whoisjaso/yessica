@@ -5,6 +5,7 @@ import { cloudStore, deviceStore, supabase, type Store } from "@/lib/store/store
 import { say, type Lang, type StringKey } from "@/lib/i18n/strings";
 import type { Dealer, TitleSale } from "@/lib/title/types";
 import { SignIn } from "@/components/sign-in";
+import { AGENT_NAME } from "@/lib/title/agent";
 
 type Desk = {
   lang: Lang;
@@ -128,7 +129,7 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       sales,
       saveDealer,
       saveSale,
-      me: email || me,
+      me: me || AGENT_NAME,
       setMe: (name) => {
         setMeState(name);
         writePref(ME_KEY, name);

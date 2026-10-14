@@ -3,9 +3,10 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDesk } from "@/components/desk";
+import { Guide } from "@/components/guide";
 import { DealerSearch, titleCase } from "@/components/dealer-search";
 import { newId } from "@/lib/store/store";
-import { texasToday } from "@/lib/title/clock";
+import { addDays, texasToday, usDate } from "@/lib/title/clock";
 import { intakeSteps, type StepId } from "@/lib/title/intake";
 import { carName, emptySale, type Dealer, type IdType, type TitleSale } from "@/lib/title/types";
 import { PLATE_COLORS } from "@/lib/vehicles/plate-class";
@@ -53,6 +54,7 @@ function Intake() {
   const index = Math.max(0, steps.indexOf(at));
   const dealer = dealers.find((d) => d.id === sale.dealerId) ?? null;
   const editing = !!editId;
+  const pastLenders = [...new Set(sales.filter((s) => s.lien.holder === "lender" && s.lien.name.trim() && s.id !== sale.id).map((s) => s.lien.name.trim()))].slice(0, 6);
 
   const patch = (next: Partial<TitleSale>) => setSale((cur) => (cur ? { ...cur, ...next } : cur));
   const patchBuyer = (next: Partial<TitleSale["buyer"]>) =>
@@ -101,7 +103,7 @@ function Intake() {
       <div className="mt-10" data-step={at}>
         {at === "dealer" && (
           <Question title={t("qDealer")}>
-            <DealerSearch onPick={pickDealer} autoFocus />
+            <DealerSearch onPick={pickDealer} autoFocus guided />
           </Question>
         )}
 
@@ -123,7 +125,8 @@ function Intake() {
 
         {at === "color" && (
           <Question title={t("qColor")}>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <Guide target="tiles" say={t("gColor")} />
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" data-guide="tiles">
               {PLATE_COLORS.map((c) => (
                 <button
                   key={c}
@@ -224,22 +227,26 @@ function Intake() {
         )}
 
         {at === "price" && (
-          <Blanks
-            title={t("qPrice")}
-            onNext={() => advance()}
-            ok={!!sale.price && !!sale.saleDate}
-            fields={[
-              {
-                label: t("price"),
-                value: sale.price ? String(sale.price) : "",
-                set: (v) => patch({ price: Number(v.replace(/[^\d.]/g, "")) || null }),
-                mono: true,
-                inputMode: "decimal",
-                prefix: "$",
-              },
-              { label: t("saleDate"), value: sale.saleDate, set: (v) => patch({ saleDate: v }), type: "date", mono: true },
-            ]}
-          />
+          <Question title={t("qPrice")}>
+            <p className="mb-2 text-[13px] font-medium text-muted">{t("saleDate")}</p>
+            <DatePick value={sale.saleDate} onPick={(d) => patch({ saleDate: d })} />
+            <div className="mt-6">
+              <Blanks
+                onNext={() => advance()}
+                ok={!!sale.price && !!sale.saleDate}
+                fields={[
+                  {
+                    label: t("price"),
+                    value: sale.price ? String(sale.price) : "",
+                    set: (v) => patch({ price: Number(v.replace(/[^\d.]/g, "")) || null }),
+                    mono: true,
+                    inputMode: "decimal",
+                    prefix: "$",
+                  },
+                ]}
+              />
+            </div>
+          </Question>
         )}
 
         {at === "odometer" && (
@@ -305,12 +312,24 @@ function Intake() {
         )}
 
         {at === "lender" && (
-          <Blanks
-            title={t("qLender")}
-            onNext={() => advance()}
-            ok={!!sale.lien.name.trim()}
-            fields={[{ label: t("qLender"), value: sale.lien.name, set: (v) => patch({ lien: { holder: "lender", name: v } }) }]}
-          />
+          <Question title={t("qLender")}>
+            {pastLenders.length > 0 && (
+              <div className="mb-5 grid gap-2.5" data-guide="lenders">
+                <Guide target="lenders" say={t("gPick")} />
+                {pastLenders.map((name) => (
+                  <button key={name} type="button" onClick={() => advance({ lien: { holder: "lender", name } })} className="tile px-5 py-4 text-left text-[17px] font-medium" data-own-content>
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Blanks
+              onNext={() => advance()}
+              ok={!!sale.lien.name.trim()}
+              noGuide={pastLenders.length > 0}
+              fields={[{ label: pastLenders.length ? t("otherLender") : t("lenderName"), value: sale.lien.name, set: (v) => patch({ lien: { holder: "lender", name: v } }) }]}
+            />
+          </Question>
         )}
 
         {at === "emptyWeight" && (
@@ -361,8 +380,10 @@ function Tiles({
   options: { value: string; label: string; hint?: string; pressed?: boolean }[];
   onPick: (value: string) => void;
 }) {
+  const { t } = useDesk();
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" data-guide="tiles">
+      <Guide target="tiles" say={t("gPick")} />
       {options.map((o) => (
         <button
           key={o.value}
@@ -404,6 +425,7 @@ function Blanks({
   ok,
   onNext,
   skippable,
+  noGuide,
 }: {
   title?: string;
   line?: string;
@@ -411,10 +433,15 @@ function Blanks({
   ok: boolean;
   onNext: () => void;
   skippable?: boolean;
+  noGuide?: boolean;
 }) {
   const { t } = useDesk();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const allEmpty = fields.every((f) => !f.value.trim());
+  // The pointer: the first blank still empty, else Next.
+  const emptyAt = fields.findIndex((f) => !f.optional && !f.value.trim());
+  const pointAt = ok || emptyAt < 0 ? "next" : `blank-${emptyAt}`;
+  const pointSay = pointAt === "next" ? (skippable && allEmpty ? t("gSkip") : t("gNext")) : t("gType");
   return (
     <Question title={title} line={line}>
       <form
@@ -430,6 +457,7 @@ function Blanks({
               <span className="relative block">
                 {f.prefix && <span className="figure pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-faint">{f.prefix}</span>}
                 <input
+                  data-guide={`blank-${i}`}
                   ref={(el) => {
                     refs.current[i] = el;
                   }}
@@ -460,10 +488,11 @@ function Blanks({
             </label>
           ))}
         </div>
-        <button className="primary mt-6 w-full" disabled={!ok} data-testid="next">
+        <button className="primary mt-6 w-full" disabled={!ok} data-testid="next" data-guide="next">
           {skippable && allEmpty ? t("skip") : t("next")}
         </button>
       </form>
+      {!noGuide && <Guide target={pointAt} say={pointSay} />}
     </Question>
   );
 }
@@ -523,6 +552,7 @@ function VinStep({
           spellCheck={false}
           autoCapitalize="characters"
           data-testid="vin"
+          data-guide="vin"
         />
         <p className="mt-3 min-h-[24px] text-[15px]" data-own-content>
           {looking ? (
@@ -536,10 +566,11 @@ function VinStep({
             <span className="text-faint">{t("vinBad")}</span>
           ) : null}
         </p>
-        <button className="primary mt-4 w-full" disabled={!valid || looking} data-testid="next">
+        <button className="primary mt-4 w-full" disabled={!valid || looking} data-testid="next" data-guide="next">
           {t("next")}
         </button>
       </form>
+      <Guide target={valid && !looking ? "next" : "vin"} say={valid && !looking ? t("gNext") : t("gVin")} />
     </Question>
   );
 }
@@ -583,12 +614,12 @@ function AddressStep({
       >
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-muted">{t("street")}</span>
-          <input className="field text-[19px]" value={b.street} onChange={(e) => patchBuyer({ street: e.target.value })} onBlur={complete} autoFocus autoComplete="off" />
+          <input data-guide="a-street" className="field text-[19px]" value={b.street} onChange={(e) => patchBuyer({ street: e.target.value })} onBlur={complete} autoFocus autoComplete="off" />
         </label>
         <div className="grid grid-cols-[1fr_88px] gap-3">
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-muted">{t("city")}</span>
-            <input className="field text-[19px]" value={b.city} onChange={(e) => patchBuyer({ city: e.target.value })} onBlur={complete} autoComplete="off" />
+            <input data-guide="a-city" className="field text-[19px]" value={b.city} onChange={(e) => patchBuyer({ city: e.target.value })} onBlur={complete} autoComplete="off" />
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-muted">{t("state")}</span>
@@ -598,11 +629,11 @@ function AddressStep({
         <div className="grid grid-cols-[120px_1fr] gap-3">
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-muted">{t("zip")}</span>
-            <input className="field figure text-[19px]" value={b.zip} inputMode="numeric" onChange={(e) => patchBuyer({ zip: e.target.value.replace(/[^\d-]/g, "").slice(0, 10) })} onBlur={complete} />
+            <input data-guide="a-zip" className="field figure text-[19px]" value={b.zip} inputMode="numeric" onChange={(e) => patchBuyer({ zip: e.target.value.replace(/[^\d-]/g, "").slice(0, 10) })} onBlur={complete} />
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-muted">{t("county")}</span>
-            <input className="field text-[19px]" value={b.county} list="tx-counties" onChange={(e) => patchBuyer({ county: e.target.value })} onBlur={() => { const c = canonicalCounty(b.county); if (c) patchBuyer({ county: c }); }} />
+            <input data-guide="a-county" className="field text-[19px]" value={b.county} list="tx-counties" onChange={(e) => patchBuyer({ county: e.target.value })} onBlur={() => { const c = canonicalCounty(b.county); if (c) patchBuyer({ county: c }); }} />
             <datalist id="tx-counties">
               {TEXAS_COUNTIES.map((c) => (
                 <option key={c} value={c} />
@@ -610,10 +641,14 @@ function AddressStep({
             </datalist>
           </label>
         </div>
-        <button className="primary mt-3 w-full" disabled={!ok} data-testid="next">
+        <button className="primary mt-3 w-full" disabled={!ok} data-testid="next" data-guide="next">
           {t("next")}
         </button>
       </form>
+      <Guide
+        target={ok ? "next" : !b.street.trim() ? "a-street" : !b.city.trim() ? "a-city" : !/^\d{5}/.test(b.zip) ? "a-zip" : "a-county"}
+        say={ok ? t("gNext") : t("gType")}
+      />
     </Question>
   );
 }
@@ -650,5 +685,42 @@ function TitleFromStep({ sale, onNext }: { sale: TitleSale; onNext: (state: stri
         </form>
       )}
     </Question>
+  );
+}
+
+/** The sale date as buttons: almost always today or yesterday. */
+function DatePick({ value, onPick }: { value: string; onPick: (iso: string) => void }) {
+  const { t } = useDesk();
+  const today = texasToday();
+  const yesterday = addDays(today, -1);
+  const [other, setOther] = useState(value !== today && value !== yesterday);
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-2.5">
+        {[
+          { key: "today", label: t("today"), iso: today },
+          { key: "yesterday", label: t("yesterday"), iso: yesterday },
+        ].map((d) => (
+          <button
+            key={d.key}
+            type="button"
+            aria-pressed={!other && value === d.iso}
+            onClick={() => {
+              setOther(false);
+              onPick(d.iso);
+            }}
+            className="tile px-3 py-3.5 text-center"
+          >
+            <span className="block text-[16px] font-medium">{d.label}</span>
+            <span className="figure block text-[12px] text-faint">{usDate(d.iso).slice(0, 5)}</span>
+          </button>
+        ))}
+        <button type="button" aria-pressed={other} onClick={() => setOther(true)} className="tile px-3 py-3.5 text-center">
+          <span className="block text-[16px] font-medium">{t("otherDate")}</span>
+          <span className="figure block text-[12px] text-faint">{other ? usDate(value).slice(0, 5) : "—"}</span>
+        </button>
+      </div>
+      {other && <input type="date" className="field figure mt-3 text-[17px]" value={value} max={today} onChange={(e) => e.target.value && onPick(e.target.value)} />}
+    </div>
   );
 }

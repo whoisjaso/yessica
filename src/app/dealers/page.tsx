@@ -12,7 +12,7 @@ export default function Dealers() {
     <div>
       <Heading title={t("navDealers")} />
       <div className="mt-8">
-        <DealerSearch onPick={(d) => router.push(`/dealers/${d.id}`)} />
+        <DealerSearch onPick={(d) => router.push(`/dealers/${d.id}`)} guided />
       </div>
     </div>
   );

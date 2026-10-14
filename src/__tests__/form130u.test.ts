@@ -30,3 +30,13 @@ describe("the filled 130-U", () => {
     expect(form.getCheckBox("Not Actual").isChecked()).toBe(true);
   });
 });
+
+describe("the agent on the seller line", () => {
+  it("is the title agent unless the dealer names someone else", async () => {
+    const template = await readFile("public/forms/130-U.pdf");
+    const { AGENT_NAME } = await import("@/lib/title/agent");
+    const bytes = await fill130U(agreementFromSale(readySale(), { ...DEALER, agentName: "" }), template);
+    const form = (await PDFDocument.load(bytes)).getForm();
+    expect(form.getTextField("Seller  Name").getText()).toBe(`Example Motors LLC (${AGENT_NAME})`);
+  });
+});
